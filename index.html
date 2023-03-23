@@ -5,9 +5,89 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AP da Thamilla - Airbnb no Ethereum</title>
+    <style>
+      #boxTxStatus {
+        background-color: darkgreen;
+        color: yellow;
+        margin-top: 5vh;
+        width: 80vw;
+      }
+    </style>
   </head>
   <body>
-    <h1>AP da Thamilla - Airbnb no Ethereum</h1>
-    <h5>Valor atual da suite:&nbsp;<span id="labelValorAluguel">0</span></h5>
+    <h1>AP de <span id="labelLocador">&nbsp;</span> - Airbnb no Ethereum</h1>
+    <h3>Valor atual da suite:&nbsp;<span id="labelValorAluguel">0</span></h3>
+    <h3>O seu saldo atual é:&nbsp;<span id="labelSaldoUsuario">0</span></h3>
+    <div>
+      <button onclick="callReajustaAluguel()">Reajusta Aluguel</button>
+      &nbsp; | &nbsp;
+      <button onclick="callPagaAluguel()">Pagar o Aluguel</button>
+    </div>
+    <div>
+      <div id="boxTxStatus">Sem transações pendentes.</div>
+    </div>
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
+    <script src="abi.js"></script>
+    <script>
+      let provider;
+      let signer;
+      let signerAddress;
+      let contratoAluguel;
+      let contratoAluguelComSigner;
+
+      async function preparaAmbiente() {
+        try {
+          if (window.ethereum == null) {
+            alert("Você precisa ter o Metamask instalado.");
+            return;
+          }
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          await provider.send("eth_requestAccounts", []);
+          signer = provider.getSigner();
+          signerAddress = await signer.getAddress();
+          contratoAluguel = new ethers.Contract("0x7463978dAB7fe58E9a15d54588A2cD9c200AAA4a", abi, provider);
+          const valorAluguel = await contratoAluguel.valorAtualDoAluguel();
+          const labelValorAluguel = document.getElementById("labelValorAluguel");
+          labelValorAluguel.innerHTML = valorAluguel;
+          const labelSaldoUsuario = document.getElementById("labelSaldoUsuario");
+          const saldo = await provider.getBalance(signerAddress);
+          labelSaldoUsuario.innerHTML = ethers.utils.formatEther(saldo);
+          contratoAluguelComSigner = contratoAluguel.connect(signer);
+          const locador = await contratoAluguelComSigner.getLocador();
+          const labelLocador = document.getElementById("labelLocador");
+          labelLocador.innerHTML = locador;
+        } catch (err) {
+          console.error("Erro ao conectar ao Smart Contract: ", err);
+        }
+      }
+
+      async function callReajustaAluguel() {
+        const boxTxStatus = document.getElementById("boxTxStatus");
+
+        let tx = await contratoAluguelComSigner.reajustaAluguel(2);
+        console.log("tx", tx);
+        boxTxStatus.innerHTML = "O Hash da Tx enviada é: " + tx.hash;
+
+        let txRecibo = await tx.wait(2);
+        console.log("txRecibo", txRecibo);
+        const resultado = txRecibo.status == 1 ? "Sucesso" : "Falha";
+        boxTxStatus.innerHTML = "O resultado da Tx enviada foi: " + resultado;
+      }
+
+      async function callPagaAluguel() {
+        const boxTxStatus = document.getElementById("boxTxStatus");
+
+        let tx = await contratoAluguelComSigner.pagaAluguel({ value: 6000000 });
+        console.log("tx", tx);
+        boxTxStatus.innerHTML = "O Hash da Tx enviada é: " + tx.hash;
+
+        let txRecibo = await tx.wait(2);
+        console.log("txRecibo", txRecibo);
+        const resultado = txRecibo.status == 1 ? "Sucesso" : "Falha";
+        boxTxStatus.innerHTML = "O resultado da Tx enviada foi: " + resultado;
+      }
+
+      preparaAmbiente();
+    </script>
   </body>
 </html>
